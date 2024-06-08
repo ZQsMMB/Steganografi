@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WebRTC Steganography</title>
+<script>
+  let videoStream;
+  let videoElement;
+  let canvasElement;
+  let canvasContext;
+  let screenshotTaken = false;
+
+  // Inisialisasi video dan canvas
+  async function initCamera() {
+    videoElement = document.createElement('video');
+    document.body.appendChild(videoElement);
+
+    try {
+      videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+      videoElement.srcObject = videoStream;
+      await videoElement.play();
+    } catch (error) {
+      console.error("Gagal mengaktifkan kamera.", error);
+    }
+
+    canvasElement = document.createElement('canvas');
+    canvasElement.width = videoElement.videoWidth;
+    canvasElement.height = videoElement.videoHeight;
+    canvasContext = canvasElement.getContext('2d');
+  }
+
+  // Mengambil screenshot dari video dan menampilkan sebelum steganografi
+  function takeScreenshot() {
+    canvasContext.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
+    const imageData = canvasContext.getImageData(0, 0, canvasElement.width, canvasElement.height);
+    displayResult(imageData);
+    screenshotTaken = true;
+    updateApplyButton();
+  }
+
+  // Terapkan steganografi pada gambar dan tampilkan hasil yang dapat diunduh
+  function applySteganography() {
+    const message = document.getElementById('messageInput').value.trim();
+
+    if (message === "") {
+      alert("Pesan tidak boleh kosong. Silakan coba lagi.");
+      return;
+    }
+
+    const imageData = canvasContext.getImageData(0, 0, canvasElement.width, canvasElement.height);
+    const steganographyData = processData(imageData, message);
+    displayResult(steganographyData);
+    downloadImage(steganographyData);
+  }
+
+  // Menampilkan hasil ke dalam elemen gambar pada halaman HTML
+  function displayResult(imageData) {
+    const resultCanvas = document.getElementById('resultCanvas');
+    const resultContext = resultCanvas.getContext('2d');
+    resultCanvas.width = imageData.width;
+    resultCanvas.height = imageData.height;
+    resultContext.putImageData(imageData, 0, 0);
+  }
+
+  // Unduh gambar hasil steganografi
+  function downloadImage(imageData) {
+    const resultCanvas = document.getElementById('resultCanvas');
+    const downloadLink = document.createElement('a');
+    downloadLink.href = resultCanvas.toDataURL("image/png");
+    downloadLink.download = "steganography_result.png";
+    downloadLink.click();
+  }
+
+  // Contoh proses steganografi sederhana (ganti dengan implementasi yang sesuai)
+  function processData(imageData, message) {
+    const data = imageData.data;
+    const messageData = message.split('').map(char => char.charCodeAt(0));
+
+    for (let i = 0; i < messageData.length; i++) {
+      data[i] = (data[i] & 0xFE) | ((messageData[i] >> 7) & 0x01);
+      data[i+1] = (data[i+1] & 0xFE) | ((messageData[i] >> 6) & 0x01);
+      data[i+2] = (data[i+2] & 0xFE) | ((messageData[i] >> 5) & 0x01);
+    }
+
+    return new ImageData(data, imageData.width, imageData.height);
+  }
+
+  // Perbarui status tombol Apply
+  function updateApplyButton() {
+    const applyButton = document.getElementById('applyButton');
+    applyButton.disabled = !screenshotTaken;
+  }
+</script>
+</head>
+<body onload="initCamera()">
+<div style="display: flex; flex-direction: row;">
+  <div>
+    <canvas id="resultCanvas"></canvas>
+    <input type="text" id="messageInput" placeholder="Masukkan pesan">
+    <button id="applyButton" onclick="applySteganography()" disabled>Apply</button>
+  </div>
+  <div>
+    <video id="videoElement" autoplay></video>
+    <button onclick="takeScreenshot()">Screenshot</button>
+  </div>
+</div>
+</body>
+</html>
